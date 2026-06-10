@@ -1,0 +1,118 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #0a0a12;
+  font-family: Georgia, 'Times New Roman', serif;
+  overflow-x: hidden;
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+#scroll-space {
+  height: 700vh;
+  pointer-events: none;
+}
+
+#vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+#title {
+  position: fixed;
+  top: 12vh;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: #f0e6d2;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  transition: opacity 0.2s linear;
+}
+
+#title h1 {
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: normal;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+}
+
+#title p {
+  margin-top: 0.8em;
+  font-size: clamp(0.9rem, 1.6vw, 1.2rem);
+  letter-spacing: 0.25em;
+  font-style: italic;
+  opacity: 0.85;
+}
+
+#title .hint {
+  margin-top: 38vh;
+  font-size: 0.85rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+#title .arrow {
+  display: block;
+  margin-top: 0.6em;
+  font-size: 1.4rem;
+  animation: bounce 1.8s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(10px); }
+}
+
+#inside-hint {
+  position: fixed;
+  bottom: 5vh;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: #e8dcc0;
+  font-size: 0.8rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  transition: opacity 0.2s linear;
+  pointer-events: none;
+}
+
+#loader {
+  position: fixed;
+  inset: 0;
+  background: #0a0a12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c8b88a;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  z-index: 10;
+  transition: opacity 0.8s ease;
+}
+
+#loader.done {
+  opacity: 0;
+  pointer-events: none;
+}
