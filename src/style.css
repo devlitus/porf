@@ -9,8 +9,8 @@ html {
 }
 
 body {
-  background: #0a0a12;
-  font-family: Georgia, 'Times New Roman', serif;
+  background: #04060c;
+  font-family: 'Courier New', 'Lucida Console', monospace;
   overflow-x: hidden;
 }
 
@@ -31,7 +31,7 @@ body {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 10, 0.6) 100%);
 }
 
 #title {
@@ -40,25 +40,25 @@ body {
   left: 0;
   right: 0;
   text-align: center;
-  color: #f0e6d2;
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.9);
+  color: #bdf4ff;
+  text-shadow: 0 0 18px rgba(43, 217, 255, 0.75), 0 2px 14px rgba(0, 0, 0, 0.9);
   pointer-events: none;
   transition: opacity 0.2s linear;
 }
 
 #title h1 {
   font-size: clamp(2rem, 5vw, 4rem);
-  font-weight: normal;
+  font-weight: bold;
   letter-spacing: 0.35em;
   text-transform: uppercase;
 }
 
 #title p {
   margin-top: 0.8em;
-  font-size: clamp(0.9rem, 1.6vw, 1.2rem);
+  font-size: clamp(0.85rem, 1.5vw, 1.1rem);
   letter-spacing: 0.25em;
-  font-style: italic;
-  opacity: 0.85;
+  color: #6fc8e8;
+  opacity: 0.9;
 }
 
 #title .hint {
@@ -87,11 +87,11 @@ body {
   left: 0;
   right: 0;
   text-align: center;
-  color: #e8dcc0;
+  color: #9fdcff;
   font-size: 0.8rem;
   letter-spacing: 0.25em;
   text-transform: uppercase;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 0 10px rgba(43, 217, 255, 0.6);
   opacity: 0;
   transition: opacity 0.2s linear;
   pointer-events: none;
@@ -100,11 +100,11 @@ body {
 #loader {
   position: fixed;
   inset: 0;
-  background: #0a0a12;
+  background: #04060c;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #c8b88a;
+  color: #46e0ff;
   letter-spacing: 0.3em;
   text-transform: uppercase;
   font-size: 0.9rem;

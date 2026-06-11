@@ -1,41 +1,75 @@
 import * as THREE from 'three';
 import './style.css';
 import {
-  stoneTexture,
-  cobbleTexture,
-  parquetTexture,
-  galleryWallTexture,
-  plasterTexture,
-  signTexture,
-  plaqueTexture,
+  metalPanelTexture,
+  streetTexture,
+  darkFloorTexture,
+  ceilingTexture,
+  neonSignTexture,
+  projectCardTexture,
+  holoPlaqueTexture,
+  type RepoInfo,
 } from './textures';
 
 // ---------------------------------------------------------------------------
-// Layout: la fachada está en z=0; la calle se extiende hacia +z y la sala
+// Layout: la fachada está en z=0; la avenida se extiende hacia +z y la sala
 // interior hacia -z (14 m de ancho, 16 m de fondo, 5.5 m de alto).
+// Año 2426: los cuadros son proyectos de devlitus (GitHub) con ≥1 estrella,
+// exhibidos como artefactos digitales del siglo XXI.
 // ---------------------------------------------------------------------------
 const ROOM_W = 14;
 const ROOM_D = 16;
 const ROOM_H = 5.5;
 const EYE = 1.7;
 
-const PAINTINGS = [
-  { file: 'venus.jpg', title: 'El nacimiento de Venus', artist: 'Sandro Botticelli, c. 1485' },
-  { file: 'primavera.jpg', title: 'La primavera', artist: 'Sandro Botticelli, c. 1480' },
-  { file: 'annunciation.jpg', title: 'La Anunciación', artist: 'Fra Angelico, c. 1440' },
-  { file: 'arnolfini.jpg', title: 'El matrimonio Arnolfini', artist: 'Jan van Eyck, 1434' },
-  { file: 'ermine.jpg', title: 'La dama del armiño', artist: 'Leonardo da Vinci, c. 1490' },
-  { file: 'federico.jpg', title: 'Federico da Montefeltro', artist: 'Piero della Francesca, c. 1470' },
-  { file: 'ghirlandaio.jpg', title: 'Anciano con su nieto', artist: 'Domenico Ghirlandaio, c. 1490' },
-  { file: 'weyden.jpg', title: 'Retrato de una dama', artist: 'Rogier van der Weyden, c. 1460' },
-  { file: 'loredan.jpg', title: 'El dux Leonardo Loredan', artist: 'Giovanni Bellini, c. 1501' },
+const FALLBACK_REPOS: RepoInfo[] = [
+  { name: 'chat', description: 'Aplicación web de chat con IA construida con Astro 5, React y Groq API. Persistencia local, streaming en tiempo real y diseño responsivo.', stars: 1, language: 'TypeScript', url: 'https://github.com/devlitus/chat' },
+  { name: 'csvviewer', description: 'Herramienta para visualizar y explorar archivos CSV de manera rápida y sencilla, con una interfaz intuitiva para el análisis de datos.', stars: 1, language: 'TypeScript', url: 'https://github.com/devlitus/csvviewer' },
+  { name: 'galleryImageSD', description: 'Aplicación web para gestionar y mostrar imágenes, desarrollada con Astro y Cloudinary. Modo oscuro/claro, galería responsiva y carga drag & drop.', stars: 1, language: 'TypeScript', url: 'https://github.com/devlitus/galleryImageSD' },
+  { name: 'repos-deep-learning', description: 'Repositorio dedicado al estudio e implementación de técnicas y algoritmos de aprendizaje profundo (Deep Learning).', stars: 1, language: 'Jupyter Notebook', url: 'https://github.com/devlitus/repos-deep-learning' },
+  { name: 'travel-web', description: 'Generador de itinerarios de viaje personalizado que utiliza IA (Gemini) para crear planes detallados según destino, presupuesto y estilo de viaje.', stars: 1, language: 'TypeScript', url: 'https://github.com/devlitus/travel-web' },
 ];
 
-// Tres a la izquierda, tres al frente (pared del fondo) y tres a la derecha.
-const SLOTS = [
-  { wall: 'left', z: -4.5 }, { wall: 'left', z: -8.5 }, { wall: 'left', z: -12.5 },
-  { wall: 'back', x: -4.5 }, { wall: 'back', x: 0 }, { wall: 'back', x: 4.5 },
-  { wall: 'right', z: -4.5 }, { wall: 'right', z: -8.5 }, { wall: 'right', z: -12.5 },
+async function fetchStarredRepos(): Promise<RepoInfo[]> {
+  try {
+    const res = await fetch('https://api.github.com/users/devlitus/repos?per_page=100');
+    if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+    const data: Array<{
+      name: string;
+      description: string | null;
+      stargazers_count: number;
+      language: string | null;
+      html_url: string;
+      fork: boolean;
+    }> = await res.json();
+    const repos = data
+      .filter((r) => !r.fork && r.stargazers_count >= 1)
+      .sort((a, b) => b.stargazers_count - a.stargazers_count || a.name.localeCompare(b.name))
+      .map((r) => ({
+        name: r.name,
+        description: r.description ?? '',
+        stars: r.stargazers_count,
+        language: r.language ?? '',
+        url: r.html_url,
+      }));
+    return repos.length ? repos : FALLBACK_REPOS;
+  } catch {
+    return FALLBACK_REPOS;
+  }
+}
+
+// Orden de colocación: primero el fondo y las paredes medias para que la sala
+// quede equilibrada con pocos proyectos.
+const SLOT_ORDER = [
+  { wall: 'back', x: 0 },
+  { wall: 'left', z: -8.5 },
+  { wall: 'right', z: -8.5 },
+  { wall: 'left', z: -4.5 },
+  { wall: 'right', z: -4.5 },
+  { wall: 'back', x: -4.5 },
+  { wall: 'back', x: 4.5 },
+  { wall: 'left', z: -12.5 },
+  { wall: 'right', z: -12.5 },
 ] as const;
 
 const canvas = document.getElementById('scene') as HTMLCanvasElement;
@@ -50,28 +84,33 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x10141f);
-scene.fog = new THREE.Fog(0x10141f, 20, 60);
+scene.background = new THREE.Color(0x05070f);
+scene.fog = new THREE.Fog(0x05070f, 20, 60);
 
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 120);
-
-const loadingManager = new THREE.LoadingManager(() => loaderEl.classList.add('done'));
-const textureLoader = new THREE.TextureLoader(loadingManager);
 
 // --------------------------------- Exterior --------------------------------
 
 function buildExterior() {
   const group = new THREE.Group();
 
+  const streetMap = streetTexture(14, 12);
   const street = new THREE.Mesh(
     new THREE.PlaneGeometry(60, 50),
-    new THREE.MeshStandardMaterial({ map: cobbleTexture(14, 12), roughness: 0.95 })
+    new THREE.MeshStandardMaterial({
+      map: streetMap,
+      emissiveMap: streetMap,
+      emissive: 0x1c4a5e,
+      emissiveIntensity: 0.55,
+      roughness: 0.4,
+      metalness: 0.4,
+    })
   );
   street.rotation.x = -Math.PI / 2;
   street.position.set(0, 0, 25);
   group.add(street);
 
-  // Fachada de piedra con el arco de entrada recortado.
+  // Fachada metálica con el arco de entrada recortado.
   const shape = new THREE.Shape();
   shape.moveTo(-20, 0);
   shape.lineTo(20, 0);
@@ -88,80 +127,92 @@ function buildExterior() {
 
   const facade = new THREE.Mesh(
     new THREE.ExtrudeGeometry(shape, { depth: 0.7, bevelEnabled: false }),
-    new THREE.MeshStandardMaterial({ map: stoneTexture(0.3, 0.3), roughness: 0.9 })
+    new THREE.MeshStandardMaterial({ map: metalPanelTexture(6, 2), roughness: 0.55, metalness: 0.6 })
   );
   facade.position.z = -0.7;
   group.add(facade);
 
-  const columnMat = new THREE.MeshStandardMaterial({ map: stoneTexture(1, 3), roughness: 0.85 });
+  // Aro de luz alrededor del arco de entrada.
+  const doorRim = new THREE.Mesh(
+    new THREE.TorusGeometry(1.45, 0.06, 8, 40, Math.PI),
+    new THREE.MeshBasicMaterial({ color: 0x46e0ff })
+  );
+  doorRim.position.set(0, 2.6, 0.02);
+  group.add(doorRim);
   for (const side of [-1, 1]) {
-    const column = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 4.6, 16), columnMat);
-    column.position.set(side * 2.1, 2.3, 0.35);
-    group.add(column);
-    const capital = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.3, 0.85), columnMat);
-    capital.position.set(side * 2.1, 4.75, 0.35);
-    group.add(capital);
+    const jamb = new THREE.Mesh(
+      new THREE.BoxGeometry(0.1, 2.6, 0.1),
+      new THREE.MeshBasicMaterial({ color: 0x46e0ff })
+    );
+    jamb.position.set(side * 1.42, 1.3, 0.02);
+    group.add(jamb);
   }
 
-  const cornice = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.45, 1), columnMat);
-  cornice.position.set(0, 5.1, 0.3);
-  group.add(cornice);
+  // Pilones luminosos flanqueando la entrada.
+  const pylonMat = new THREE.MeshStandardMaterial({ color: 0x1a2436, roughness: 0.5, metalness: 0.7 });
+  for (const side of [-1, 1]) {
+    const pylon = new THREE.Mesh(new THREE.BoxGeometry(0.45, 4.6, 0.45), pylonMat);
+    pylon.position.set(side * 2.4, 2.3, 0.4);
+    group.add(pylon);
+    const strip = new THREE.Mesh(
+      new THREE.BoxGeometry(0.08, 4.2, 0.08),
+      new THREE.MeshBasicMaterial({ color: 0x46e0ff })
+    );
+    strip.position.set(side * 2.4, 2.3, 0.65);
+    strip.name = `strip${side}`;
+    group.add(strip);
+    const glow = new THREE.PointLight(0x46e0ff, 16, 14, 1.8);
+    glow.position.set(side * 2.4, 3.4, 0.9);
+    glow.name = `glow${side}`;
+    group.add(glow);
+  }
 
   const sign = new THREE.Mesh(
-    new THREE.PlaneGeometry(4.2, 1.05),
-    new THREE.MeshStandardMaterial({ map: signTexture('GALLERIA'), roughness: 0.6 })
+    new THREE.PlaneGeometry(4.6, 1.15),
+    new THREE.MeshBasicMaterial({ map: neonSignTexture('DEVLITUS · 2426') })
   );
   sign.position.set(0, 6.1, 0.06);
   group.add(sign);
 
-  // Edificios oscuros flanqueando la calle para guiar la perspectiva.
-  const buildingMat = new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 1 });
-  const windowMat = new THREE.MeshBasicMaterial({ color: 0xffb45e });
+  // Torres oscuras con ventanas de neón flanqueando la avenida.
+  const buildingMat = new THREE.MeshStandardMaterial({ color: 0x10141f, roughness: 0.7, metalness: 0.5 });
+  const windowColors = [0x46e0ff, 0xff4fd8, 0xffd75e];
   for (const side of [-1, 1]) {
     for (let i = 0; i < 3; i++) {
       const depth = 8 + Math.random() * 3;
-      const height = 7 + Math.random() * 4;
+      const height = 14 + Math.random() * 10;
       const building = new THREE.Mesh(new THREE.BoxGeometry(6, height, depth), buildingMat);
       building.position.set(side * (8.5 + Math.random()), height / 2, 6 + i * 11);
       group.add(building);
-      for (let w = 0; w < 3; w++) {
-        if (Math.random() < 0.4) continue;
-        const win = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.85), windowMat);
+      for (let w = 0; w < 7; w++) {
+        if (Math.random() < 0.35) continue;
+        const win = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.5, 0.5),
+          new THREE.MeshBasicMaterial({
+            color: windowColors[Math.floor(Math.random() * windowColors.length)],
+          })
+        );
         win.position.set(
           building.position.x - side * 3.02,
-          2.2 + w * 1.9,
+          2 + w * 1.7,
           building.position.z + (Math.random() - 0.5) * depth * 0.6
         );
         win.rotation.y = -side * Math.PI / 2;
         group.add(win);
       }
+      // Línea vertical luminosa en la arista de cada torre.
+      const edge = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, height, 0.06),
+        new THREE.MeshBasicMaterial({ color: 0x46e0ff })
+      );
+      edge.position.set(building.position.x - side * 3.02, height / 2, building.position.z - depth / 2);
+      group.add(edge);
     }
   }
 
-  // Antorchas a ambos lados de la puerta.
-  for (const side of [-1, 1]) {
-    const sconce = new THREE.Mesh(
-      new THREE.ConeGeometry(0.13, 0.55, 8),
-      new THREE.MeshStandardMaterial({ color: 0x3a2c1a, roughness: 0.8 })
-    );
-    sconce.position.set(side * 3.2, 3.0, 0.25);
-    group.add(sconce);
-    const flame = new THREE.Mesh(
-      new THREE.SphereGeometry(0.11, 8, 8),
-      new THREE.MeshBasicMaterial({ color: 0xffc66a })
-    );
-    flame.position.set(side * 3.2, 3.38, 0.25);
-    flame.name = `flame${side}`;
-    group.add(flame);
-    const torch = new THREE.PointLight(0xff9540, 18, 14, 1.8);
-    torch.position.set(side * 3.2, 3.45, 0.7);
-    torch.name = `torch${side}`;
-    group.add(torch);
-  }
-
-  // Cielo estrellado del anochecer.
+  // Cielo estrellado y un planeta anillado sobre la ciudad.
   const starPositions: number[] = [];
-  for (let i = 0; i < 500; i++) {
+  for (let i = 0; i < 700; i++) {
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.random() * Math.PI * 0.45;
     const r = 90;
@@ -179,10 +230,24 @@ function buildExterior() {
   );
   group.add(stars);
 
-  const moonlight = new THREE.DirectionalLight(0x8899cc, 0.7);
-  moonlight.position.set(-15, 25, 30);
-  group.add(moonlight);
-  group.add(new THREE.HemisphereLight(0x33405e, 0x14110d, 0.5));
+  const planet = new THREE.Mesh(
+    new THREE.SphereGeometry(6, 32, 32),
+    new THREE.MeshBasicMaterial({ color: 0x3a5c8e, fog: false })
+  );
+  planet.position.set(16, 30, -75);
+  group.add(planet);
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(7.5, 10.5, 48),
+    new THREE.MeshBasicMaterial({ color: 0x6f88b8, fog: false, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
+  );
+  ring.position.copy(planet.position);
+  ring.rotation.set(Math.PI / 2.6, 0.4, 0);
+  group.add(ring);
+
+  const skylight = new THREE.DirectionalLight(0x4d6fbf, 0.7);
+  skylight.position.set(-15, 25, 30);
+  group.add(skylight);
+  group.add(new THREE.HemisphereLight(0x1a2c4e, 0x05070a, 0.6));
 
   return group;
 }
@@ -192,27 +257,28 @@ function buildExterior() {
 function buildInterior() {
   const group = new THREE.Group();
 
-  const wallMat = new THREE.MeshStandardMaterial({ map: galleryWallTexture(4, 1.6), roughness: 0.9 });
-  const plasterMat = new THREE.MeshStandardMaterial({ map: plasterTexture(5, 5), roughness: 0.95 });
+  const wallMat = new THREE.MeshStandardMaterial({ map: metalPanelTexture(4, 1.6), roughness: 0.6, metalness: 0.55 });
+  const ceilingMat = new THREE.MeshStandardMaterial({ map: ceilingTexture(5, 5), roughness: 0.9 });
 
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(ROOM_W, ROOM_D),
-    new THREE.MeshStandardMaterial({ map: parquetTexture(5, 6), roughness: 0.55, metalness: 0.05 })
+    new THREE.MeshStandardMaterial({ map: darkFloorTexture(5, 6), roughness: 0.25, metalness: 0.5 })
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, 0.001, -ROOM_D / 2);
   group.add(floor);
 
-  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), plasterMat);
+  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), ceilingMat);
   ceiling.rotation.x = Math.PI / 2;
   ceiling.position.set(0, ROOM_H, -ROOM_D / 2);
   group.add(ceiling);
 
-  const beamMat = new THREE.MeshStandardMaterial({ color: 0x4a2f18, roughness: 0.85 });
+  // Líneas de luz en el techo en lugar de vigas.
+  const lineMat = new THREE.MeshBasicMaterial({ color: 0x9fdcff });
   for (let z = -2; z >= -ROOM_D + 2; z -= 2.8) {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(ROOM_W, 0.28, 0.32), beamMat);
-    beam.position.set(0, ROOM_H - 0.14, z);
-    group.add(beam);
+    const line = new THREE.Mesh(new THREE.BoxGeometry(ROOM_W - 2, 0.05, 0.12), lineMat);
+    line.position.set(0, ROOM_H - 0.03, z);
+    group.add(line);
   }
 
   const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_D, ROOM_H), wallMat);
@@ -248,32 +314,44 @@ function buildInterior() {
   frontWall.position.z = -0.71;
   group.add(frontWall);
 
-  // Zócalo dorado a lo largo de las paredes.
-  const trimMat = new THREE.MeshStandardMaterial({ color: 0x9c7c3a, roughness: 0.4, metalness: 0.6 });
+  // Zócalo luminoso a lo largo de las paredes.
+  const trimMat = new THREE.MeshBasicMaterial({ color: 0x46e0ff });
   for (const [w, x, z, ry] of [
     [ROOM_D, -ROOM_W / 2 + 0.03, -ROOM_D / 2, Math.PI / 2],
     [ROOM_D, ROOM_W / 2 - 0.03, -ROOM_D / 2, -Math.PI / 2],
     [ROOM_W, 0, -ROOM_D + 0.03, 0],
   ] as const) {
-    const trim = new THREE.Mesh(new THREE.BoxGeometry(w, 0.18, 0.05), trimMat);
-    trim.position.set(x, 0.09, z);
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, 0.04), trimMat);
+    trim.position.set(x, 0.12, z);
     trim.rotation.y = ry;
     group.add(trim);
   }
 
-  group.add(new THREE.HemisphereLight(0xfff2dc, 0x3a2a18, 0.55));
-  const doorGlow = new THREE.PointLight(0xffd9a0, 25, 12, 1.8);
+  group.add(new THREE.HemisphereLight(0xb8d8f0, 0x12203a, 1.1));
+  const doorGlow = new THREE.PointLight(0x6fd8ff, 25, 12, 1.8);
   doorGlow.position.set(0, 3, -2.5);
   group.add(doorGlow);
+
+  // Luces frías de techo a lo largo de la sala.
+  for (const z of [-5, -11]) {
+    const lamp = new THREE.PointLight(0xcfe8ff, 30, 18, 1.6);
+    lamp.position.set(0, ROOM_H - 0.6, z);
+    group.add(lamp);
+  }
 
   return group;
 }
 
-function addPaintings(group: THREE.Group) {
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0xc8a04a, roughness: 0.35, metalness: 0.65 });
+// ------------------------------ Paneles holográficos ------------------------
 
-  PAINTINGS.forEach((info, i) => {
-    const slot = SLOTS[i];
+const panels: { holder: THREE.Group; baseY: number; phase: number }[] = [];
+
+function addProjects(group: THREE.Group, repos: RepoInfo[]) {
+  const frameMat = new THREE.MeshBasicMaterial({ color: 0x46e0ff });
+  const backingMat = new THREE.MeshStandardMaterial({ color: 0x0a1220, roughness: 0.4, metalness: 0.6 });
+
+  repos.slice(0, SLOT_ORDER.length).forEach((repo, i) => {
+    const slot = SLOT_ORDER[i];
     const holder = new THREE.Group();
 
     if (slot.wall === 'left') {
@@ -286,41 +364,38 @@ function addPaintings(group: THREE.Group) {
       holder.position.set(slot.x, 2.6, -ROOM_D + 0.06);
     }
     group.add(holder);
+    panels.push({ holder, baseY: 2.6, phase: i * 1.7 });
 
-    textureLoader.load(`/paintings/${info.file}`, (tex) => {
-      tex.colorSpace = THREE.SRGBColorSpace;
-      const aspect = tex.image.width / tex.image.height;
-      let h = 1.9;
-      let w = h * aspect;
-      if (w > 3.1) {
-        w = 3.1;
-        h = w / aspect;
-      }
+    const w = 3.0;
+    const h = w * (640 / 1024);
 
-      const frame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.28, h + 0.28, 0.12), frameMat);
-      holder.add(frame);
-      const inner = new THREE.Mesh(
-        new THREE.BoxGeometry(w + 0.1, h + 0.1, 0.13),
-        new THREE.MeshStandardMaterial({ color: 0x2c1d0e, roughness: 0.7 })
-      );
-      holder.add(inner);
-      const art = new THREE.Mesh(
-        new THREE.PlaneGeometry(w, h),
-        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 })
-      );
-      art.position.z = 0.071;
-      holder.add(art);
+    const backing = new THREE.Mesh(new THREE.BoxGeometry(w + 0.18, h + 0.18, 0.08), backingMat);
+    holder.add(backing);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.26, h + 0.26, 0.04), frameMat);
+    frame.position.z = -0.01;
+    holder.add(frame);
 
-      const plaque = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.85, 0.26),
-        new THREE.MeshStandardMaterial({ map: plaqueTexture(info.title, info.artist), roughness: 0.4, metalness: 0.3 })
-      );
-      plaque.position.set(0, -h / 2 - 0.45, 0.02);
-      holder.add(plaque);
-    });
+    // La pantalla es autoluminosa, como un holograma.
+    const card = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ map: projectCardTexture(repo) })
+    );
+    card.position.z = 0.055;
+    holder.add(card);
 
-    // Foco cálido dirigido a cada cuadro.
-    const spot = new THREE.SpotLight(0xffe5b8, 60, 0, 0.42, 0.65, 1.6);
+    const plaque = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.3, 0.4),
+      new THREE.MeshBasicMaterial({
+        map: holoPlaqueTexture(repo.name, 'devlitus · artefacto c. 2025'),
+        transparent: true,
+        opacity: 0.92,
+      })
+    );
+    plaque.position.set(0, -h / 2 - 0.5, 0.02);
+    holder.add(plaque);
+
+    // Foco frío dirigido a cada panel.
+    const spot = new THREE.SpotLight(0xbfe8ff, 70, 0, 0.42, 0.65, 1.6);
     const dir = new THREE.Vector3(0, 0, 1).applyEuler(holder.rotation);
     spot.position.copy(holder.position).addScaledVector(dir, 3.2).setY(ROOM_H - 0.3);
     spot.target = holder;
@@ -330,8 +405,14 @@ function addPaintings(group: THREE.Group) {
 
 const exterior = buildExterior();
 const interior = buildInterior();
-addPaintings(interior);
 scene.add(exterior, interior);
+
+async function init() {
+  const repos = await fetchStarredRepos();
+  addProjects(interior, repos);
+  loaderEl.classList.add('done');
+}
+init();
 
 // ----------------------------- Recorrido de cámara -------------------------
 
@@ -397,12 +478,20 @@ function animate() {
   camera.rotateY(-mouse.x * 1.1 * look);
   camera.rotateX(-mouse.y * 0.4 * look);
 
-  // Parpadeo de las antorchas.
+  // Pulso de los pilones de la entrada.
   for (const side of [-1, 1]) {
-    const torch = exterior.getObjectByName(`torch${side}`) as THREE.PointLight | null;
-    if (torch) torch.intensity = 16 + Math.sin(t * 9 + side * 7) * 2.5 + Math.sin(t * 23 + side) * 1.5;
-    const flame = exterior.getObjectByName(`flame${side}`);
-    if (flame) flame.scale.setScalar(1 + Math.sin(t * 11 + side * 3) * 0.18);
+    const glow = exterior.getObjectByName(`glow${side}`) as THREE.PointLight | null;
+    if (glow) glow.intensity = 14 + Math.sin(t * 2 + side * 2) * 4;
+    const strip = exterior.getObjectByName(`strip${side}`) as THREE.Mesh | null;
+    if (strip) {
+      const m = strip.material as THREE.MeshBasicMaterial;
+      m.color.setHSL(0.53, 1, 0.6 + Math.sin(t * 2 + side * 2) * 0.12);
+    }
+  }
+
+  // Levitación suave de los paneles holográficos.
+  for (const p of panels) {
+    p.holder.position.y = p.baseY + Math.sin(t * 0.9 + p.phase) * 0.04;
   }
 
   titleEl.style.opacity = String(1 - smoothstep(0.01, 0.12, progress));
