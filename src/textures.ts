@@ -9,6 +9,16 @@ export interface RepoInfo {
   homepage: string;
 }
 
+export interface ProfileInfo {
+  name: string;
+  bio: string;
+  location: string;
+  url: string;
+  blog: string;
+  repos: number;
+  since: number;
+}
+
 function makeCanvas(w: number, h: number) {
   const canvas = document.createElement('canvas');
   canvas.width = w;
@@ -234,6 +244,90 @@ export function projectCardTexture(repo: RepoInfo) {
   ctx.textAlign = 'right';
   ctx.font = 'bold 34px "Arial", sans-serif';
   ctx.fillText(`★ ${repo.stars}`, 964, 594);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+export function cvSheetTexture(profile: ProfileInfo, stack: string[]) {
+  const { canvas, ctx } = makeCanvas(640, 854);
+
+  const bg = ctx.createLinearGradient(0, 0, 0, 854);
+  bg.addColorStop(0, '#081020');
+  bg.addColorStop(1, '#0c1a32');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 640, 854);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.02)';
+  for (let y = 0; y < 854; y += 4) ctx.fillRect(0, y, 640, 1);
+
+  ctx.strokeStyle = '#2bd9ff';
+  ctx.lineWidth = 4;
+  ctx.shadowColor = '#2bd9ff';
+  ctx.shadowBlur = 18;
+  ctx.strokeRect(14, 14, 612, 826);
+  ctx.shadowBlur = 0;
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#5a7d9e';
+  ctx.font = '20px "Courier New", monospace';
+  ctx.letterSpacing = '5px';
+  ctx.fillText('REGISTRO DE OPERADOR · SIGLO XXI', 48, 78);
+
+  ctx.fillStyle = '#7df3ff';
+  ctx.font = 'bold 52px "Courier New", monospace';
+  ctx.letterSpacing = '1px';
+  ctx.shadowColor = '#2bd9ff';
+  ctx.shadowBlur = 14;
+  const nameParts = profile.name.split(' ');
+  ctx.fillText(nameParts[0], 48, 150, 544);
+  ctx.fillText(nameParts.slice(1).join(' '), 48, 208, 544);
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = '#c9d8e8';
+  ctx.font = '28px "Courier New", monospace';
+  ctx.fillText(profile.bio.toUpperCase(), 48, 264, 544);
+
+  ctx.strokeStyle = 'rgba(70,224,255,0.35)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(48, 300);
+  ctx.lineTo(592, 300);
+  ctx.stroke();
+
+  ctx.font = '24px "Courier New", monospace';
+  const fields: Array<[string, string]> = [
+    ['UBICACIÓN', profile.location],
+    ['ACTIVO DESDE', String(profile.since)],
+    ['REPOSITORIOS', String(profile.repos)],
+  ];
+  fields.forEach(([k, v], i) => {
+    ctx.fillStyle = '#5a7d9e';
+    ctx.fillText(k, 48, 352 + i * 48);
+    ctx.fillStyle = '#d8ecf8';
+    ctx.fillText(v, 280, 352 + i * 48);
+  });
+
+  ctx.fillStyle = '#5a7d9e';
+  ctx.fillText('STACK', 48, 532);
+  ctx.fillStyle = '#7df3ff';
+  stack.slice(0, 5).forEach((lang, i) => {
+    ctx.fillText(`▸ ${lang}`, 80, 576 + i * 42);
+  });
+
+  ctx.fillStyle = '#5a7d9e';
+  ctx.font = '22px "Courier New", monospace';
+  ctx.fillText('github.com/devlitus', 48, 806);
+
+  // Código de barras decorativo.
+  let bx = 380;
+  while (bx < 590) {
+    const w = 2 + Math.random() * 6;
+    ctx.fillStyle = Math.random() < 0.7 ? '#46e0ff' : '#1a3a4e';
+    ctx.fillRect(bx, 780, w, 32);
+    bx += w + 3;
+  }
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;

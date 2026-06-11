@@ -8,7 +8,9 @@ import {
   neonSignTexture,
   projectCardTexture,
   holoPlaqueTexture,
+  cvSheetTexture,
   type RepoInfo,
+  type ProfileInfo,
 } from './textures';
 
 // ---------------------------------------------------------------------------
@@ -29,6 +31,43 @@ const FALLBACK_REPOS: RepoInfo[] = [
   { name: 'repos-deep-learning', description: 'Repositorio dedicado al estudio e implementación de técnicas y algoritmos de aprendizaje profundo (Deep Learning).', stars: 1, language: 'Jupyter Notebook', url: 'https://github.com/devlitus/repos-deep-learning', homepage: '' },
   { name: 'travel-web', description: 'Generador de itinerarios de viaje personalizado que utiliza IA (Gemini) para crear planes detallados según destino, presupuesto y estilo de viaje.', stars: 1, language: 'TypeScript', url: 'https://github.com/devlitus/travel-web', homepage: 'https://travel-web-ashen-chi.vercel.app' },
 ];
+
+const FALLBACK_PROFILE: ProfileInfo = {
+  name: 'Carles Pedrero',
+  bio: 'Developer Front-end',
+  location: 'España',
+  url: 'https://github.com/devlitus',
+  blog: '',
+  repos: 90,
+  since: 2016,
+};
+
+async function fetchProfile(): Promise<ProfileInfo> {
+  try {
+    const res = await fetch('https://api.github.com/users/devlitus');
+    if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+    const u: {
+      name: string | null;
+      bio: string | null;
+      location: string | null;
+      html_url: string;
+      blog: string | null;
+      public_repos: number;
+      created_at: string;
+    } = await res.json();
+    return {
+      name: u.name ?? 'devlitus',
+      bio: u.bio ?? 'Developer',
+      location: u.location ?? '',
+      url: u.html_url,
+      blog: u.blog ?? '',
+      repos: u.public_repos,
+      since: new Date(u.created_at).getFullYear(),
+    };
+  } catch {
+    return FALLBACK_PROFILE;
+  }
+}
 
 async function fetchStarredRepos(): Promise<RepoInfo[]> {
   try {
@@ -350,8 +389,11 @@ interface PanelEntry {
   holder: THREE.Group;
   baseY: number;
   phase: number;
-  repo: RepoInfo;
   frameMat: THREE.MeshBasicMaterial;
+  focusDist: number;
+  lookOffset: number;
+  repo?: RepoInfo;
+  profile?: ProfileInfo;
 }
 
 const panels: PanelEntry[] = [];
@@ -397,7 +439,7 @@ function addProjects(group: THREE.Group, repos: RepoInfo[]) {
     card.userData.index = i;
     frame.userData.index = i;
     clickables.push(card, frame);
-    panels.push({ holder, baseY: 2.6, phase: i * 1.7, repo, frameMat });
+    panels.push({ holder, baseY: 2.6, phase: i * 1.7, repo, frameMat, focusDist: 3.7, lookOffset: 0.95 });
 
     const plaque = new THREE.Mesh(
       new THREE.PlaneGeometry(1.3, 0.4),
@@ -419,13 +461,87 @@ function addProjects(group: THREE.Group, repos: RepoInfo[]) {
   });
 }
 
+// Atril central: pedestal metálico con las hojas holográficas del CV.
+function addAtril(group: THREE.Group, profile: ProfileInfo, stack: string[]) {
+  const z = -11.4;
+  const metal = new THREE.MeshStandardMaterial({ color: 0x1a2436, roughness: 0.5, metalness: 0.7 });
+  const neonMat = new THREE.MeshBasicMaterial({ color: 0x46e0ff });
+
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.58, 0.08, 24), metal);
+  base.position.set(0, 0.04, z);
+  group.add(base);
+
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.022, 8, 40), neonMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(0, 0.09, z);
+  group.add(ring);
+
+  const column = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.22, 1.05, 16), metal);
+  column.position.set(0, 0.6, z);
+  group.add(column);
+
+  const desk = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.05, 0.55), metal);
+  desk.position.set(0, 1.16, z);
+  desk.rotation.x = 0.32;
+  group.add(desk);
+
+  const deskStrip = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.012, 0.05), neonMat);
+  deskStrip.position.set(0, 1.1, z + 0.25);
+  deskStrip.rotation.x = 0.32;
+  group.add(deskStrip);
+
+  const lamp = new THREE.PointLight(0x46e0ff, 8, 5, 1.8);
+  lamp.position.set(0, 2.2, z + 0.5);
+  group.add(lamp);
+
+  // Hojas holográficas tumbadas sobre el atril, como páginas de lectura,
+  // para no ocultar el panel del fondo desde el final del recorrido.
+  const sheets = new THREE.Group();
+  sheets.position.set(0, 1.42, z + 0.05);
+  sheets.rotation.x = -0.9;
+  group.add(sheets);
+
+  const sheetTex = cvSheetTexture(profile, stack);
+  const main = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.66, 0.88),
+    new THREE.MeshBasicMaterial({ map: sheetTex, transparent: true, opacity: 0.96 })
+  );
+  sheets.add(main);
+  for (const side of [-1, 1]) {
+    const ghost = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.66, 0.88),
+      new THREE.MeshBasicMaterial({ map: sheetTex, transparent: true, opacity: 0.12, depthWrite: false })
+    );
+    ghost.position.set(side * 0.26, -0.03, -0.12);
+    ghost.rotation.y = side * 0.18;
+    sheets.add(ghost);
+  }
+
+  const index = panels.length;
+  sheets.children.forEach((m) => (m.userData.index = index));
+  base.userData.index = index;
+  desk.userData.index = index;
+  clickables.push(...sheets.children, base, desk);
+  panels.push({
+    holder: sheets,
+    baseY: 1.42,
+    phase: 2.5,
+    profile,
+    frameMat: neonMat,
+    focusDist: 1.7,
+    lookOffset: 0.42,
+  });
+}
+
 const exterior = buildExterior();
 const interior = buildInterior();
 scene.add(exterior, interior);
 
 async function init() {
-  const repos = await fetchStarredRepos();
+  const [repos, profile] = await Promise.all([fetchStarredRepos(), fetchProfile()]);
   addProjects(interior, repos);
+  const stack = [...new Set(repos.map((r) => r.language).filter(Boolean))];
+  addAtril(interior, profile, stack.length ? stack : ['TypeScript']);
   loaderEl.classList.add('done');
 }
 init();
@@ -435,6 +551,7 @@ init();
 // izquierda para dejar sitio a la ficha DOM que se desliza por la derecha).
 
 const detailEl = document.getElementById('detail')!;
+const detailKicker = document.getElementById('detail-kicker')!;
 const detailName = document.getElementById('detail-name')!;
 const detailDesc = document.getElementById('detail-desc')!;
 const detailLang = document.getElementById('detail-lang')!;
@@ -460,8 +577,8 @@ const focusMatrix = new THREE.Matrix4();
 function computeFocusPose(p: PanelEntry) {
   focusNormal.set(0, 0, 1).applyEuler(p.holder.rotation);
   focusRight.set(1, 0, 0).applyEuler(p.holder.rotation);
-  focusLook.copy(p.holder.position).addScaledVector(focusRight, 0.95);
-  focusPos.copy(focusLook).addScaledVector(focusNormal, 3.7);
+  focusLook.copy(p.holder.position).addScaledVector(focusRight, p.lookOffset);
+  focusPos.copy(focusLook).addScaledVector(focusNormal, p.focusDist);
   focusMatrix.lookAt(focusPos, focusLook, camera.up);
   focusQuat.setFromRotationMatrix(focusMatrix);
 }
@@ -478,13 +595,29 @@ function openDetail(p: PanelEntry) {
   focusPanel = p;
   detailState = 'entering';
   openScrollY = window.scrollY;
-  detailName.textContent = p.repo.name;
-  detailDesc.textContent = p.repo.description || 'Sin descripción registrada.';
-  detailLang.textContent = p.repo.language || '—';
-  detailStars.textContent = `★ ${p.repo.stars}`;
-  detailLink.href = p.repo.url;
-  detailDemo.href = p.repo.homepage || '#';
-  detailDemo.style.display = p.repo.homepage ? '' : 'none';
+  if (p.profile) {
+    detailKicker.textContent = 'Operador humano · Siglo XXI';
+    detailName.textContent = p.profile.name;
+    detailDesc.textContent = `${p.profile.bio}. En activo desde ${p.profile.since}, con ${p.profile.repos} repositorios públicos en su archivo.`;
+    detailLang.textContent = p.profile.location || '—';
+    detailStars.textContent = `${p.profile.repos} repos`;
+    detailLink.href = p.profile.url;
+    detailLink.textContent = 'Perfil de GitHub ↗';
+    detailDemo.href = p.profile.blog || '#';
+    detailDemo.textContent = 'Portfolio ⚡';
+    detailDemo.style.display = p.profile.blog ? '' : 'none';
+  } else if (p.repo) {
+    detailKicker.textContent = 'Archivo digital · Siglo XXI';
+    detailName.textContent = p.repo.name;
+    detailDesc.textContent = p.repo.description || 'Sin descripción registrada.';
+    detailLang.textContent = p.repo.language || '—';
+    detailStars.textContent = `★ ${p.repo.stars}`;
+    detailLink.href = p.repo.url;
+    detailLink.textContent = 'Ver en GitHub ↗';
+    detailDemo.href = p.repo.homepage || '#';
+    detailDemo.textContent = 'Ver en vivo ⚡';
+    detailDemo.style.display = p.repo.homepage ? '' : 'none';
+  }
   setHovered(-1);
 }
 
