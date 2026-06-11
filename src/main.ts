@@ -454,6 +454,11 @@ window.addEventListener('resize', () => {
 
 const pos = new THREE.Vector3();
 const ahead = new THREE.Vector3();
+const END_TARGET = new THREE.Vector3(0, EYE + 0.15, -ROOM_D);
+// El giro con el ratón se interpola para que al hacer scroll (cuando `look`
+// cambia) la cámara no pegue latigazos al recuperar la orientación del camino.
+let lookYaw = 0;
+let lookPitch = 0;
 let lastTime = performance.now();
 
 function animate() {
@@ -467,7 +472,7 @@ function animate() {
 
   path.getPointAt(progress, pos);
   path.getPointAt(Math.min(1, progress + 0.04), ahead);
-  if (progress > 0.96) ahead.set(0, EYE + 0.15, -ROOM_D);
+  ahead.lerp(END_TARGET, smoothstep(0.88, 0.98, progress));
   camera.position.copy(pos);
   camera.lookAt(ahead);
 
@@ -475,8 +480,11 @@ function animate() {
   camera.fov = 62 - 9 * smoothstep(0, 0.4, progress);
   camera.updateProjectionMatrix();
   const look = smoothstep(0.8, 0.97, progress);
-  camera.rotateY(-mouse.x * 1.1 * look);
-  camera.rotateX(-mouse.y * 0.4 * look);
+  const ease = Math.min(1, dt * 4);
+  lookYaw += (-mouse.x * 1.1 * look - lookYaw) * ease;
+  lookPitch += (-mouse.y * 0.4 * look - lookPitch) * ease;
+  camera.rotateY(lookYaw);
+  camera.rotateX(lookPitch);
 
   // Pulso de los pilones de la entrada.
   for (const side of [-1, 1]) {
