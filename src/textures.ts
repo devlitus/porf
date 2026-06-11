@@ -6,6 +6,7 @@ export interface RepoInfo {
   stars: number;
   language: string;
   url: string;
+  homepage: string;
 }
 
 function makeCanvas(w: number, h: number) {

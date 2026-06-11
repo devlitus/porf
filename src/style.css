@@ -157,20 +157,39 @@ body {
   color: #ffd75e;
 }
 
-#detail-link {
+#detail .actions {
+  display: flex;
+  gap: 0.8em;
+  flex-wrap: wrap;
+}
+
+#detail .actions a {
   display: inline-block;
-  background: #46e0ff;
-  color: #04060c;
   padding: 0.6em 1.1em;
   text-decoration: none;
   font-weight: bold;
   font-size: 0.85rem;
   letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+#detail-demo {
+  background: #46e0ff;
+  color: #04060c;
   box-shadow: 0 0 16px rgba(43, 217, 255, 0.5);
 }
 
-#detail-link:hover {
+#detail-demo:hover {
   background: #aef6ff;
+}
+
+#detail-link {
+  border: 1px solid rgba(70, 224, 255, 0.6);
+  color: #7df3ff;
+}
+
+#detail-link:hover {
+  background: rgba(70, 224, 255, 0.15);
 }
 
 #detail-close {

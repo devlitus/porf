@@ -23,11 +23,11 @@ const ROOM_H = 5.5;
 const EYE = 1.7;
 
 const FALLBACK_REPOS: RepoInfo[] = [
-  { name: 'chat', description: 'Aplicación web de chat con IA construida con Astro 5, React y Groq API. Persistencia local, streaming en tiempo real y diseño responsivo.', stars: 1, language: 'TypeScript', url: 'https://github.com/devlitus/chat' },
-  { name: 'csvviewer', description: 'Herramienta para visualizar y explorar archivos CSV de manera rápida y sencilla, con una interfaz intuitiva para el análisis de datos.', stars: 1, language: 'TypeScript', url: 'https://github.com/devlitus/csvviewer' },
-  { name: 'galleryImageSD', description: 'Aplicación web para gestionar y mostrar imágenes, desarrollada con Astro y Cloudinary. Modo oscuro/claro, galería responsiva y carga drag & drop.', stars: 1, language: 'TypeScript', url: 'https://github.com/devlitus/galleryImageSD' },
-  { name: 'repos-deep-learning', description: 'Repositorio dedicado al estudio e implementación de técnicas y algoritmos de aprendizaje profundo (Deep Learning).', stars: 1, language: 'Jupyter Notebook', url: 'https://github.com/devlitus/repos-deep-learning' },
-  { name: 'travel-web', description: 'Generador de itinerarios de viaje personalizado que utiliza IA (Gemini) para crear planes detallados según destino, presupuesto y estilo de viaje.', stars: 1, language: 'TypeScript', url: 'https://github.com/devlitus/travel-web' },
+  { name: 'chat', description: 'Aplicación web de chat con IA construida con Astro 5, React y Groq API. Persistencia local, streaming en tiempo real y diseño responsivo.', stars: 1, language: 'TypeScript', url: 'https://github.com/devlitus/chat', homepage: 'https://chat-teal-ten-21.vercel.app' },
+  { name: 'csvviewer', description: 'Herramienta para visualizar y explorar archivos CSV de manera rápida y sencilla, con una interfaz intuitiva para el análisis de datos.', stars: 1, language: 'TypeScript', url: 'https://github.com/devlitus/csvviewer', homepage: 'https://csvviewer-v2.vercel.app' },
+  { name: 'galleryImageSD', description: 'Aplicación web para gestionar y mostrar imágenes, desarrollada con Astro y Cloudinary. Modo oscuro/claro, galería responsiva y carga drag & drop.', stars: 1, language: 'TypeScript', url: 'https://github.com/devlitus/galleryImageSD', homepage: 'https://gallery-image-sd.vercel.app' },
+  { name: 'repos-deep-learning', description: 'Repositorio dedicado al estudio e implementación de técnicas y algoritmos de aprendizaje profundo (Deep Learning).', stars: 1, language: 'Jupyter Notebook', url: 'https://github.com/devlitus/repos-deep-learning', homepage: '' },
+  { name: 'travel-web', description: 'Generador de itinerarios de viaje personalizado que utiliza IA (Gemini) para crear planes detallados según destino, presupuesto y estilo de viaje.', stars: 1, language: 'TypeScript', url: 'https://github.com/devlitus/travel-web', homepage: 'https://travel-web-ashen-chi.vercel.app' },
 ];
 
 async function fetchStarredRepos(): Promise<RepoInfo[]> {
@@ -40,6 +40,7 @@ async function fetchStarredRepos(): Promise<RepoInfo[]> {
       stargazers_count: number;
       language: string | null;
       html_url: string;
+      homepage: string | null;
       fork: boolean;
     }> = await res.json();
     const repos = data
@@ -51,6 +52,7 @@ async function fetchStarredRepos(): Promise<RepoInfo[]> {
         stars: r.stargazers_count,
         language: r.language ?? '',
         url: r.html_url,
+        homepage: r.homepage ?? '',
       }));
     return repos.length ? repos : FALLBACK_REPOS;
   } catch {
@@ -438,6 +440,7 @@ const detailDesc = document.getElementById('detail-desc')!;
 const detailLang = document.getElementById('detail-lang')!;
 const detailStars = document.getElementById('detail-stars')!;
 const detailLink = document.getElementById('detail-link') as HTMLAnchorElement;
+const detailDemo = document.getElementById('detail-demo') as HTMLAnchorElement;
 
 let detailState: 'free' | 'entering' | 'open' | 'leaving' = 'free';
 let focusPanel: PanelEntry | null = null;
@@ -480,6 +483,8 @@ function openDetail(p: PanelEntry) {
   detailLang.textContent = p.repo.language || '—';
   detailStars.textContent = `★ ${p.repo.stars}`;
   detailLink.href = p.repo.url;
+  detailDemo.href = p.repo.homepage || '#';
+  detailDemo.style.display = p.repo.homepage ? '' : 'none';
   setHovered(-1);
 }
 
