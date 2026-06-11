@@ -479,10 +479,12 @@ function animate() {
   // Zoom suave de la lente durante la aproximación y giro libre al final.
   camera.fov = 62 - 9 * smoothstep(0, 0.4, progress);
   camera.updateProjectionMatrix();
+  // Rango amplio (±137°/±40°) para poder encuadrar los paneles laterales,
+  // que desde el punto final de la sala quedan a ±90° de la mirada frontal.
   const look = smoothstep(0.8, 0.97, progress);
   const ease = Math.min(1, dt * 4);
-  lookYaw += (-mouse.x * 1.1 * look - lookYaw) * ease;
-  lookPitch += (-mouse.y * 0.4 * look - lookPitch) * ease;
+  lookYaw += (-mouse.x * 2.4 * look - lookYaw) * ease;
+  lookPitch += (-mouse.y * 0.7 * look - lookPitch) * ease;
   camera.rotateY(lookYaw);
   camera.rotateX(lookPitch);
 
