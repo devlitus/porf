@@ -16,7 +16,19 @@
       <div class="hint">Haz scroll para entrar<span class="arrow">↓</span></div>
     </header>
 
-    <div id="inside-hint">Mueve el ratón para recorrer la sala con la mirada</div>
+    <div id="inside-hint">Mueve el ratón para mirar · Haz clic en un panel para ver su detalle</div>
+
+    <aside id="detail" aria-hidden="true">
+      <button id="detail-close" type="button" aria-label="Cerrar">✕</button>
+      <p class="kicker">Archivo digital · Siglo XXI</p>
+      <h2 id="detail-name"></h2>
+      <p id="detail-desc"></p>
+      <div class="meta">
+        <span id="detail-lang"></span>
+        <span id="detail-stars"></span>
+      </div>
+      <a id="detail-link" href="#" target="_blank" rel="noopener">Ver en GitHub ↗</a>
+    </aside>
 
     <div id="loader"><span>Inicializando archivo holográfico…</span></div>
 

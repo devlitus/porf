@@ -344,10 +344,19 @@ function buildInterior() {
 
 // ------------------------------ Paneles holográficos ------------------------
 
-const panels: { holder: THREE.Group; baseY: number; phase: number }[] = [];
+interface PanelEntry {
+  holder: THREE.Group;
+  baseY: number;
+  phase: number;
+  repo: RepoInfo;
+  frameMat: THREE.MeshBasicMaterial;
+}
+
+const panels: PanelEntry[] = [];
+const clickables: THREE.Object3D[] = [];
 
 function addProjects(group: THREE.Group, repos: RepoInfo[]) {
-  const frameMat = new THREE.MeshBasicMaterial({ color: 0x46e0ff });
+  const frameBase = new THREE.MeshBasicMaterial({ color: 0x46e0ff });
   const backingMat = new THREE.MeshStandardMaterial({ color: 0x0a1220, roughness: 0.4, metalness: 0.6 });
 
   repos.slice(0, SLOT_ORDER.length).forEach((repo, i) => {
@@ -364,13 +373,13 @@ function addProjects(group: THREE.Group, repos: RepoInfo[]) {
       holder.position.set(slot.x, 2.6, -ROOM_D + 0.06);
     }
     group.add(holder);
-    panels.push({ holder, baseY: 2.6, phase: i * 1.7 });
 
     const w = 3.0;
     const h = w * (640 / 1024);
 
     const backing = new THREE.Mesh(new THREE.BoxGeometry(w + 0.18, h + 0.18, 0.08), backingMat);
     holder.add(backing);
+    const frameMat = frameBase.clone();
     const frame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.26, h + 0.26, 0.04), frameMat);
     frame.position.z = -0.01;
     holder.add(frame);
@@ -382,6 +391,11 @@ function addProjects(group: THREE.Group, repos: RepoInfo[]) {
     );
     card.position.z = 0.055;
     holder.add(card);
+
+    card.userData.index = i;
+    frame.userData.index = i;
+    clickables.push(card, frame);
+    panels.push({ holder, baseY: 2.6, phase: i * 1.7, repo, frameMat });
 
     const plaque = new THREE.Mesh(
       new THREE.PlaneGeometry(1.3, 0.4),
@@ -414,6 +428,92 @@ async function init() {
 }
 init();
 
+// ------------------------------ Detalle de proyecto ------------------------
+// Al pulsar un panel, la cámara vuela hasta encuadrarlo (desplazado a la
+// izquierda para dejar sitio a la ficha DOM que se desliza por la derecha).
+
+const detailEl = document.getElementById('detail')!;
+const detailName = document.getElementById('detail-name')!;
+const detailDesc = document.getElementById('detail-desc')!;
+const detailLang = document.getElementById('detail-lang')!;
+const detailStars = document.getElementById('detail-stars')!;
+const detailLink = document.getElementById('detail-link') as HTMLAnchorElement;
+
+let detailState: 'free' | 'entering' | 'open' | 'leaving' = 'free';
+let focusPanel: PanelEntry | null = null;
+let focusT = 0;
+let openScrollY = 0;
+let hoveredIndex = -1;
+
+const raycaster = new THREE.Raycaster();
+const ndcTmp = new THREE.Vector2();
+const focusPos = new THREE.Vector3();
+const focusQuat = new THREE.Quaternion();
+const focusNormal = new THREE.Vector3();
+const focusRight = new THREE.Vector3();
+const focusLook = new THREE.Vector3();
+const focusMatrix = new THREE.Matrix4();
+
+function computeFocusPose(p: PanelEntry) {
+  focusNormal.set(0, 0, 1).applyEuler(p.holder.rotation);
+  focusRight.set(1, 0, 0).applyEuler(p.holder.rotation);
+  focusLook.copy(p.holder.position).addScaledVector(focusRight, 0.95);
+  focusPos.copy(focusLook).addScaledVector(focusNormal, 3.7);
+  focusMatrix.lookAt(focusPos, focusLook, camera.up);
+  focusQuat.setFromRotationMatrix(focusMatrix);
+}
+
+function setHovered(i: number) {
+  if (i === hoveredIndex) return;
+  if (hoveredIndex >= 0) panels[hoveredIndex].frameMat.color.setHex(0x46e0ff);
+  if (i >= 0) panels[i].frameMat.color.setHex(0xbdf4ff);
+  hoveredIndex = i;
+  canvas.style.cursor = i >= 0 ? 'pointer' : '';
+}
+
+function openDetail(p: PanelEntry) {
+  focusPanel = p;
+  detailState = 'entering';
+  openScrollY = window.scrollY;
+  detailName.textContent = p.repo.name;
+  detailDesc.textContent = p.repo.description || 'Sin descripción registrada.';
+  detailLang.textContent = p.repo.language || '—';
+  detailStars.textContent = `★ ${p.repo.stars}`;
+  detailLink.href = p.repo.url;
+  setHovered(-1);
+}
+
+function closeDetail() {
+  if (detailState === 'free' || detailState === 'leaving') return;
+  detailState = 'leaving';
+  detailEl.classList.remove('open');
+  detailEl.setAttribute('aria-hidden', 'true');
+}
+
+let downX = 0;
+let downY = 0;
+canvas.addEventListener('pointerdown', (e) => {
+  downX = e.clientX;
+  downY = e.clientY;
+});
+canvas.addEventListener('pointerup', (e) => {
+  if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return;
+  if (detailState === 'entering' || detailState === 'open') {
+    closeDetail();
+    return;
+  }
+  if (progress < 0.75) return;
+  ndcTmp.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(ndcTmp, camera);
+  const hit = raycaster.intersectObjects(clickables, false)[0];
+  if (hit) openDetail(panels[hit.object.userData.index as number]);
+});
+
+document.getElementById('detail-close')!.addEventListener('click', closeDetail);
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeDetail();
+});
+
 // ----------------------------- Recorrido de cámara -------------------------
 
 const path = new THREE.CatmullRomCurve3([
@@ -437,6 +537,9 @@ const mouse = { x: 0, y: 0 };
 function readScroll() {
   const max = document.documentElement.scrollHeight - window.innerHeight;
   targetProgress = max > 0 ? window.scrollY / max : 0;
+  if ((detailState === 'entering' || detailState === 'open') && Math.abs(window.scrollY - openScrollY) > 150) {
+    closeDetail();
+  }
 }
 window.addEventListener('scroll', readScroll, { passive: true });
 readScroll();
@@ -488,6 +591,36 @@ function animate() {
   camera.rotateY(lookYaw);
   camera.rotateX(lookPitch);
 
+  // Vuelo hacia el panel seleccionado (se mezcla sobre la pose libre).
+  const focusGoal = detailState === 'entering' || detailState === 'open' ? 1 : 0;
+  focusT += (focusGoal - focusT) * Math.min(1, dt * 3.2);
+  if (focusPanel) {
+    computeFocusPose(focusPanel);
+    const k = focusT * focusT * (3 - 2 * focusT);
+    camera.position.lerp(focusPos, k);
+    camera.quaternion.slerp(focusQuat, k);
+    if (detailState === 'entering' && focusT > 0.75) {
+      detailState = 'open';
+      detailEl.classList.add('open');
+      detailEl.setAttribute('aria-hidden', 'false');
+    }
+    if (detailState === 'leaving' && focusT < 0.02) {
+      detailState = 'free';
+      focusPanel = null;
+      focusT = 0;
+    }
+  }
+
+  // Resaltado del panel bajo el cursor.
+  if (detailState === 'free' && progress > 0.75) {
+    ndcTmp.set(mouse.x, -mouse.y);
+    raycaster.setFromCamera(ndcTmp, camera);
+    const hit = raycaster.intersectObjects(clickables, false)[0];
+    setHovered(hit ? (hit.object.userData.index as number) : -1);
+  } else if (hoveredIndex !== -1) {
+    setHovered(-1);
+  }
+
   // Pulso de los pilones de la entrada.
   for (const side of [-1, 1]) {
     const glow = exterior.getObjectByName(`glow${side}`) as THREE.PointLight | null;
@@ -499,13 +632,16 @@ function animate() {
     }
   }
 
-  // Levitación suave de los paneles holográficos.
-  for (const p of panels) {
+  // Levitación suave de los paneles holográficos y escala al pasar el cursor.
+  for (let i = 0; i < panels.length; i++) {
+    const p = panels[i];
     p.holder.position.y = p.baseY + Math.sin(t * 0.9 + p.phase) * 0.04;
+    const scaleGoal = i === hoveredIndex || p === focusPanel ? 1.04 : 1;
+    p.holder.scale.setScalar(p.holder.scale.x + (scaleGoal - p.holder.scale.x) * Math.min(1, dt * 8));
   }
 
   titleEl.style.opacity = String(1 - smoothstep(0.01, 0.12, progress));
-  insideHintEl.style.opacity = String(smoothstep(0.85, 0.96, progress));
+  insideHintEl.style.opacity = String(smoothstep(0.85, 0.96, progress) * (1 - focusT));
 
   renderer.render(scene, camera);
 }
