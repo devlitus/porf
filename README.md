@@ -1,23 +1,24 @@
-# Galleria del Quattrocento
+# Galería Devlitus · El Vestíbulo
 
-Una galería de arte inmersiva en 3D, construida con [Three.js](https://threejs.org/) y renderizada en un único `<canvas>` WebGL. La experiencia empieza en una calle nocturna frente a la fachada de un palazzo del siglo XV; al hacer scroll, la cámara avanza en travelling, cruza el arco de entrada y desemboca en una sala con nueve obras del Quattrocento colgadas en sus muros.
+Portfolio inmersivo en 3D construido con [Three.js](https://threejs.org/) y renderizado en un único `<canvas>` WebGL. La visita empieza en **El Vestíbulo**, una landing con dos cuadros enmarcados; cada uno da paso a una galería ambientada en una época distinta, y ambas exponen la misma colección: los proyectos de [devlitus](https://github.com/devlitus) en GitHub con al menos una estrella.
+
+- **Galleria del Quattrocento** (`?gallery=xv`) — una calle nocturna del siglo XV, un palazzo de piedra con antorchas y una sala donde los proyectos cuelgan como lienzos sobre pergamino, con marcos dorados y un facistol con el CV del artífice.
+- **Galería Devlitus · 2426** (`?gallery=futuro`) — una avenida de neón bajo un planeta anillado y una sala metálica donde los proyectos levitan como paneles holográficos, con un atril con el CV como registro de operador.
 
 ## Cómo se experimenta
 
 - **Scroll** — controla el avance de la cámara por una trayectoria curva (`CatmullRomCurve3`) desde la calle hasta el interior de la sala.
-- **Ratón** — orienta la mirada libremente una vez dentro de la sala, al final del recorrido.
-- Toda la geometría, texturas y luces se generan en tiempo de ejecución (no hay modelos 3D externos); las únicas texturas de imagen son las propias reproducciones de los cuadros en `public/paintings`.
+- **Ratón** — orienta la mirada libremente una vez dentro de la sala.
+- **Clic en una obra** — la cámara vuela hasta encuadrarla y se abre una ficha con la descripción, el lenguaje, las estrellas y enlaces a GitHub y a la demo.
+- **← Volver al vestíbulo** — botón fijo en cada galería para regresar a la landing.
 
-## Obras incluidas
-
-Nueve reproducciones de pintura renacentista, repartidas en tres paños (izquierda, fondo, derecha): *El nacimiento de Venus* y *La primavera* de Botticelli, *La Anunciación* de Fra Angelico, *El matrimonio Arnolfini* de Van Eyck, *La dama del armiño* de Leonardo, *Federico da Montefeltro* de Piero della Francesca, *Anciano con su nieto* de Ghirlandaio, un retrato de Van der Weyden y *El dux Leonardo Loredan* de Bellini.
+Los datos se obtienen en vivo de la API pública de GitHub (repos no-fork con ≥1★ y perfil), con datos de respaldo si la API no responde (`src/shared/github.ts`). Toda la geometría, texturas y luces se generan en tiempo de ejecución con `<canvas>` 2D: no hay modelos 3D ni imágenes externas, salvo las capturas de la landing.
 
 ## Stack técnico
 
 - [Three.js](https://threejs.org/) para la escena, cámara y materiales.
-- [Vite](https://vitejs.dev/) + TypeScript como entorno de desarrollo y build.
-- Texturas procedurales (piedra, adoquín, parqué, yeso, cartelas) generadas con `<canvas>` 2D, ver `src/textures.ts`.
-- [Playwright](https://playwright.dev/) para capturar screenshots del recorrido en distintos puntos de scroll (`scripts/shots.mjs`), útil para revisar cambios visuales sin abrir el navegador.
+- [Vite](https://vitejs.dev/) + TypeScript como entorno de desarrollo y build. Cada galería es un chunk independiente cargado con `import()` dinámico: solo se descarga la que se visita.
+- [Playwright](https://playwright.dev/) para las herramientas de desarrollo en `scripts/`.
 
 ## Desarrollo
 
@@ -28,13 +29,25 @@ pnpm build     # type-check + build de producción
 pnpm preview   # sirve el build de producción
 ```
 
+Scripts auxiliares (requieren el dev server en el puerto 5180: `pnpm dev --port 5180`):
+
+```bash
+node scripts/smoke.mjs      # recorre vestíbulo → galería XV → volver → galería futurista
+node scripts/previews.mjs   # regenera las capturas de la landing (public/previews/)
+```
+
 ## Estructura
 
 ```
-index.html          punto de entrada, canvas y overlays de UI
-src/main.ts          escena, geometría, recorrido de cámara y animación
-src/textures.ts       texturas procedurales dibujadas en <canvas>
-src/style.css         estilos de los overlays (título, viñeta, loader)
-public/paintings/     reproducciones de los cuadros
-scripts/shots.mjs      captura screenshots del recorrido con Playwright
+index.html                       esqueleto mínimo; todo el markup se inyecta desde src/
+src/main.ts                      punto de entrada: según ?gallery= monta el vestíbulo o una galería
+src/landing/                     markup, lógica y estilos del vestíbulo
+src/shared/github.ts             fetch de repos y perfil de GitHub, tipos y fallbacks
+src/galleries/quattrocento/      galería del siglo XV (escena, texturas, markup, estilos)
+src/galleries/futurista/         galería del año 2426 (escena, texturas, markup, estilos)
+public/previews/                 capturas estáticas que muestra la landing
+public/paintings/                reproducciones renacentistas (sin uso actual, se conservan)
+scripts/                         herramientas de desarrollo con Playwright
 ```
+
+La arquitectura y sus decisiones están documentadas en [PLAN.md](PLAN.md).
