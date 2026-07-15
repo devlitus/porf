@@ -1,3 +1,7 @@
+// El CSS se importa aquí (y no en gallery.ts) para que ya esté aplicado
+// cuando main.ts inyecta este markup; si no, el HTML pinta un instante sin estilos.
+import './style.css';
+
 export const title = 'Galería Devlitus · 2426';
 
 export const html = `

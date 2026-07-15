@@ -5,6 +5,14 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Galería Devlitus · El Vestíbulo</title>
+    <style>
+      /* Primer paint oscuro: los fondos reales llegan con el CSS de cada
+         vista (vía JS), y sin esto el documento pinta blanco un instante. */
+      html {
+        background: #0a0a12;
+        color-scheme: dark;
+      }
+    </style>
   </head>
   <body>
     <script type="module" src="/src/main.ts"></script>
